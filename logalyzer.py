@@ -1,47 +1,101 @@
-#!/usr/bin/python3
+"""Logalyzer, A script used to parse auth.log.
 
-import sys, stat, os
+Usage: sudo python logalyzer.py
+"""
+
+import sys
+import os
 from optparse import OptionParser
+from parse_logs import parse_logs
 
-import ParseLogs
 
-# 
-# Logalyzer. Compiled with python 3.10
-#
-
-# callback for the user flag
 def user_call(option, opt_str, value, parser):
+    """
+    Callback function for the user flag.
+
+    Parameters:
+    - option: The option object.
+    - opt_str: The option string.
+    - value: The option value.
+    - parser: The OptionParser instance.
+
+    Sets the value of the specified option in the parser's values attribute based on the user input.
+    If there are remaining arguments (rargs), the first one is assigned to the option's value.
+    If no remaining arguments, the value is set to None.
+
+    """
     if len(parser.rargs) != 0:
         value = parser.rargs[0]
     else:
         value = None
     setattr(parser.values, option.dest, value)
 
+
 # entry
 if __name__ == "__main__":
-
     # default location
-    log = '/var/log/auth.log'
+    LOG = "/var/log/auth.log"
 
     # parsing options
-    parser = OptionParser(epilog=
-                    "Combine flags to view user-specific information.  \'-u test -i\' lists IP addresses "
-                    "associated with user test")
-    parser.add_option("-u", help="Specify user.  Blank lists all users.", action="callback", 
-                    callback=user_call, default=None, dest="user")
-    parser.add_option("--full", help="Full log dump for specified user", action="store_true", 
-                                default=False, dest="fullu") 
-    parser.add_option("-l", help="Specify log file.  Default is auth.log", default=None, dest="log")
-    parser.add_option("-f", help="List failures", action="store_true", default=False, dest="fail")
-    parser.add_option("-s", help="List success logs", action="store_true", default=False, dest="success")
-    parser.add_option("-c", help="List commands by user", action="store_true", default=False, dest="commands")
-    parser.add_option("-i", help="List IP Addresses", action="store_true", default=False, dest="ip")
+    parser = OptionParser(
+        epilog="Combine flags to view user-specific information.  '-u test -i' lists IP addresses "
+        "associated with user test"
+    )
+    parser.add_option(
+        "-u",
+        help="Specify user.  Blank lists all users.",
+        action="callback",
+        callback=user_call,
+        default=None,
+        dest="user",
+    )
+    parser.add_option(
+        "--full",
+        help="Full log dump for specified user",
+        action="store_true",
+        default=False,
+        dest="fullu",
+    )
+    parser.add_option(
+        "-l",
+        help="Specify log file.  Default is auth.log",
+        default=None,
+        dest="log",
+    )
+    parser.add_option(
+        "-f",
+        help="List failures",
+        action="store_true",
+        default=False,
+        dest="fail",
+    )
+    parser.add_option(
+        "-s",
+        help="List success logs",
+        action="store_true",
+        default=False,
+        dest="success",
+    )
+    parser.add_option(
+        "-c",
+        help="List commands by user",
+        action="store_true",
+        default=False,
+        dest="commands",
+    )
+    parser.add_option(
+        "-i",
+        help="List IP Addresses",
+        action="store_true",
+        default=False,
+        dest="ip",
+    )
 
     # get arguments
     (options, args) = parser.parse_args()
-    
+
     # if they're trying to access /var/log/auth.log without proper privs, bail
-    if os.geteuid() != 0 and options.log is None:
+    if os.getuid() != 0 and options.log is None:
         print("[-] Please run with SUDO")
         sys.exit(1)
 
@@ -50,30 +104,31 @@ if __name__ == "__main__":
         log = options.log
 
     # parse logs
-    LOGS = ParseLogs.ParseLogs(log)
-    if LOGS is None: sys.exit(1)
-    
-    # validate the user 
+    LOGS = parse_logs.parse_logs(LOG)
+    if LOGS is None:
+        sys.exit(1)
+
+    # validate the user
     if options.user:
         if not options.user in LOGS:
-            print("[-] User \'%s\' is not present in the logs." % options.user)
+            print("[-] User '%s' is not present in the logs." % options.user)
             sys.exit(1)
-    
+
     # tag log location first
-    print('[!] Log file: ', log)
+    print("[!] Log file: ", LOG)
 
     # output all commands
     if options.commands and not options.user:
         for i in LOGS:
             for comms in LOGS[i].commands:
-                print("{0}:\t{1}".format(i, comms)) 
-        sys.exit(1)    
+                print("{0}:\t{1}".format(i, comms))
+        sys.exit(1)
 
     # output all failures
     elif options.fail and not options.user:
         for i in LOGS:
             for fail in LOGS[i].fail_logs:
-                print("{0}:\t{1}".format(i, fail)) 
+                print("{0}:\t{1}".format(i, fail))
         sys.exit(1)
 
     # output all logged IP addresses
@@ -85,33 +140,33 @@ if __name__ == "__main__":
 
     # output user-specific commands
     if options.commands and options.user:
-        print("[+] Commands for user \'%s\'" % options.user)
+        print("[+] Commands for user '%s'" % options.user)
         for com in LOGS[options.user].commands:
             print("\t", com)
-    
+
     # output user-specific success logs
     elif options.success and options.user:
-        print("[+] Successes logs for user \'%s\'" % options.user)
+        print("[+] Successes logs for user '%s'" % options.user)
         for log in LOGS[options.user].succ_logs:
             print("\t", log)
 
     # output user-specific failures
     elif options.fail and options.user:
-        print("[+] Failures for user \'%s\'" % options.user)
+        print("[+] Failures for user '%s'" % options.user)
         for fail in LOGS[options.user].fail_logs:
             print("\t", fail)
 
-    # output user-specific ip addresses 
+    # output user-specific ip addresses
     elif options.ip and options.user:
-        print("[+] Logged IPs for user \'%s\'" % options.user)
+        print("[+] Logged IPs for user '%s'" % options.user)
         for i in LOGS[options.user].ips:
             print("\t", i)
 
     # print out all information regarding specified user
     elif options.user is not None:
-        print("[!] Logs associated with user \'%s\'" % options.user)
-        print('[+] First log: ', LOGS[options.user].first_date())
-        print('[+] Last log: ', LOGS[options.user].last_date())
+        print("[!] Logs associated with user '%s'" % options.user)
+        print("[+] First log: ", LOGS[options.user].first_date())
+        print("[+] Last log: ", LOGS[options.user].last_date())
         print("[!] Failure Logs")
         for fail in LOGS[options.user].fail_logs:
             print("\t", fail)
@@ -136,4 +191,3 @@ if __name__ == "__main__":
         if len(LOGS) > 0:
             for i in LOGS:
                 print(i)
-
