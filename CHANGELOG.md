@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 - Explicitly specified encoding when opening files.
 - Reduced branches and statements in the script.
 
-## [Version 1.0.0] - YYYY-MM-DD
+## [Version 1.0.0] - 2023-12-31
 
 ### Added
 - [Feature] Added functionality for parsing authentication logs.
